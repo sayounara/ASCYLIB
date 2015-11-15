@@ -3,9 +3,13 @@
 *  x86-64: __m128 serves as placeholder which also requires the compiler
 *          to align     it on 16 byte boundary (as required by cmpxchg16.
 * Similar things could be done for PowerPC 64bit using a VMX data type...       */
-
 #if (defined(__x86_64__) && defined(__GNUC__)) || defined(_WIN64)
+
+#ifdef MIC
+typedef float __m128 __attribute__ ((__vector_size__ (16), __may_alias__));
+#else
 # include <xmmintrin.h>
+#endif
   typedef __m128 double_ptr_storage;
 #elif defined(_WIN32) && !defined(__GNUC__)
   typedef unsigned __int64 double_ptr_storage;

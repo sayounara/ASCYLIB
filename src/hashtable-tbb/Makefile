@@ -5,7 +5,9 @@ include $(ROOT)/common/Makefile.common
 BINS  = $(BINDIR)/lb-ht_tbb
 PROF = $(ROOT)/src
 
-CC = g++
+ifeq ($(VERSION),MIC) 
+CC = g++_mic -DMIC -w
+endif
 LDFLAGS += -L$(TBB_LIBS) -ltbb
 TEST_FILE = test_simple.cc
 

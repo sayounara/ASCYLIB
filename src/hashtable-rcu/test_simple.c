@@ -75,11 +75,12 @@ size_t load_factor = DEFAULT_LOAD;
 double update = DEFAULT_UPDATE;
 size_t num_threads = DEFAULT_NB_THREADS; 
 size_t duration = DEFAULT_DURATION;
+size_t density = 50;
 
 size_t print_vals_num = 100; 
 size_t pf_vals_num = 1023;
 size_t put, put_explicit = false;
-double update_rate, put_rate, get_rate;
+double update_rate, put_rate, get_rate, filling_rate;
 
 size_t size_after = 0;
 int seed = 0;
@@ -182,7 +183,7 @@ test(void* thread)
   uint32_t scale_put = (uint32_t) (put_rate * UINT_MAX);
 
   int i;
-  uint32_t num_elems_thread = (uint32_t) (initial / num_threads);
+  uint32_t num_elems_thread = (uint32_t) ((initial * filling_rate) / num_threads);
   int32_t missing = (uint32_t) initial - (num_elems_thread * num_threads);
   if (ID < missing)
     {
@@ -190,7 +191,7 @@ test(void* thread)
     }
 
 #if INITIALIZE_FROM_ONE == 1
-  num_elems_thread = (ID == 0) * initial;
+  num_elems_thread = (ID == 0) * initial * filling_rate;
 #endif
     
   for(i = 0; i < num_elems_thread; i++) 
@@ -218,7 +219,7 @@ test(void* thread)
 
   if (!ID)
     {
-      printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(set));
+      // printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(set));
     }
 
 
@@ -300,7 +301,7 @@ test(void* thread)
   if (!ID)
     {
       size_after = DS_SIZE(set);
-      printf("#AFTER  size is: %zu\n", size_after);
+      // printf("#AFTER  size is: %zu\n", size_after);
     }
 
   barrier_cross(&barrier);
@@ -356,7 +357,8 @@ main(int argc, char **argv)
     {"update-rate",               required_argument, NULL, 'u'},
     {"num-buckets",               required_argument, NULL, 'b'},
     {"print-vals",                required_argument, NULL, 'v'},
-    {"vals-pf",                   required_argument, NULL, 'f'},
+    {"vals-pf",                   required_argument, NULL, 'V'},
+    {"table-density",             required_argument, NULL, 'f'},
     {"load-factor",               required_argument, NULL, 'l'},
     {NULL, 0, NULL, 0}
   };
@@ -365,7 +367,7 @@ main(int argc, char **argv)
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:V:f:", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -406,8 +408,10 @@ main(int argc, char **argv)
 		 "        Number of initial buckets (stronger than -l)\n"
 		 "  -v, --print-vals <int>\n"
 		 "        When using detailed profiling, how many values to print.\n"
-		 "  -f, --val-pf <int>\n"
-		 "        When using detailed profiling, how many values to keep track of.\n"
+		 "  -V, --val-pf <int>\n"
+     "        When using detailed profiling, how many values to keep track of.\n"
+     "  -f, --table-density<int>\n"
+     "        Table density.\n"
 		 , argv[0]);
 	  exit(0);
 	case 'd':
@@ -435,9 +439,12 @@ main(int argc, char **argv)
 	case 'v':
 	  print_vals_num = atoi(optarg);
 	  break;
-	case 'f':
-	  pf_vals_num = pow2roundup(atoi(optarg)) - 1;
-	  break;
+	case 'V':
+    pf_vals_num = pow2roundup(atoi(optarg)) - 1;
+    break;
+  case 'f':
+    density = atoi(optarg);
+    break;
 	case '?':
 	default:
 	  printf("Use -h or --help for help\n");
@@ -449,7 +456,7 @@ main(int argc, char **argv)
   if (!is_power_of_two(initial))
     {
       size_t initial_pow2 = pow2roundup(initial);
-      printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
+      // printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
       initial = initial_pow2;
     }
 
@@ -458,16 +465,16 @@ main(int argc, char **argv)
       range = 2 * initial;
     }
 
-  printf("## Initial: %zu / Range: %zu / Load factor: %zu\n", initial, range, load_factor);
+  // printf("## Initial: %zu / Range: %zu / Load factor: %zu\n", initial, range, load_factor);
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;
   double mb = kb / 1024.0;
-  printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
+  // printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
   if (!is_power_of_two(range))
     {
       size_t range_pow2 = pow2roundup(range);
-      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
+      // printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
       range = range_pow2;
     }
 
@@ -477,7 +484,7 @@ main(int argc, char **argv)
     }
 
   update_rate = update / 100.0;
-
+  filling_rate = density / 100.0;
   if (put_explicit)
     {
       put_rate = put / 100.0;
@@ -542,7 +549,7 @@ main(int argc, char **argv)
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
 	{
-	  printf("ERROR; return code from pthread_create() is %d\n", rc);
+	  // printf("ERROR; return code from pthread_create() is %d\n", rc);
 	  exit(-1);
 	}
         
@@ -564,7 +571,7 @@ main(int argc, char **argv)
       rc = pthread_join(threads[t], &status);
       if (rc) 
 	{
-	  printf("ERROR; return code from pthread_join() is %d\n", rc);
+	  // printf("ERROR; return code from pthread_join() is %d\n", rc);
 	  exit(-1);
 	}
     }
@@ -601,14 +608,14 @@ main(int argc, char **argv)
     }
 
 #if defined(COMPUTE_LATENCY)
-  printf("#thread srch_suc srch_fal insr_suc insr_fal remv_suc remv_fal   ## latency (in cycles) \n"); fflush(stdout);
+  // printf("#thread srch_suc srch_fal insr_suc insr_fal remv_suc remv_fal   ## latency (in cycles) \n"); fflush(stdout);
   long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
   long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
   long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
   long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
   long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
   long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
-  printf("%-7zu %-8lu %-8lu %-8lu %-8lu %-8lu %-8lu\n", num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
+  // printf("%-7zu %-8lu %-8lu %-8lu %-8lu %-8lu %-8lu\n", num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
     
 #define LLU long long unsigned int
@@ -616,11 +623,11 @@ main(int argc, char **argv)
   int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
   if (size_after != (initial + pr))
     {
-      printf("// WRONG size. %zu + %d != %zu\n", initial, pr, size_after);
-      assert(size_after == (initial + pr));
+      // printf("// WRONG size. %zu + %d != %zu\n", initial, pr, size_after);
+     // assert(size_after == (initial + pr));
     }
 
-  printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");
+  // printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
   double putting_perc_succ = (1 - (double) (putting_count_total - putting_count_total_succ) / putting_count_total) * 100;
@@ -628,16 +635,16 @@ main(int argc, char **argv)
   double getting_perc_succ = (1 - (double) (getting_count_total - getting_count_total_succ) / getting_count_total) * 100;
   double removing_perc = 100.0 * (1 - ((double)(total - removing_count_total) / total));
   double removing_perc_succ = (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100;
-  printf("srch: %-10llu | %-10llu | %10.1f%% | %10.1f%% | \n", (LLU) getting_count_total, 
-	 (LLU) getting_count_total_succ,  getting_perc_succ, getting_perc);
-  printf("insr: %-10llu | %-10llu | %10.1f%% | %10.1f%% | %10.1f%%\n", (LLU) putting_count_total, 
-	 (LLU) putting_count_total_succ, putting_perc_succ, putting_perc, (putting_perc * putting_perc_succ) / 100);
-  printf("rems: %-10llu | %-10llu | %10.1f%% | %10.1f%% | %10.1f%%\n", (LLU) removing_count_total, 
-	 (LLU) removing_count_total_succ, removing_perc_succ, removing_perc, (removing_perc * removing_perc_succ) / 100);
+  //  printf("srch: %-10llu | %-10llu | %10.1f%% | %10.1f%% | \n", (LLU) getting_count_total, 
+	 // (LLU) getting_count_total_succ,  getting_perc_succ, getting_perc);
+  // printf("insr: %-10llu | %-10llu | %10.1f%% | %10.1f%% | %10.1f%%\n", (LLU) putting_count_total, 
+	 // (LLU) putting_count_total_succ, putting_perc_succ, putting_perc, (putting_perc * putting_perc_succ) / 100);
+  // printf("rems: %-10llu | %-10llu | %10.1f%% | %10.1f%% | %10.1f%%\n", (LLU) removing_count_total, 
+	 // (LLU) removing_count_total_succ, removing_perc_succ, removing_perc, (removing_perc * removing_perc_succ) / 100);
 
-  double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);
-  printf("#Mops %.3f\n", throughput / 1e6);
+  double throughput = (putting_count_total + getting_count_total + removing_count_total) / duration;
+  //printf("%zu,\t", num_threads);
+  printf("ops/ms:%.3f\n", throughput);
 
   RR_PRINT_UNPROTECTED(RAPL_PRINT_POW);
   RR_PRINT_CORRECTED();    

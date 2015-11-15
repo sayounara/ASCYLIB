@@ -3,10 +3,17 @@
 ################
 
 # Settings for TBB and URCU
+ifeq ($(VERSION),MIC) 
+TBB_LIBS      ?= /opt/ics/install/composer_xe_2015.0.090/tbb/lib/mic/
+else
 TBB_LIBS      ?= /home/chan/Downloads/Src/tbb42_20140122oss/build/linux_intel64_gcc_cc4.8_libc2.19_kernel3.13.0_release
+endif
 #TBB_LIBS      ?= /usr/local/lib
+ifeq ($(VERSION),MIC) 
+TBB_INCLUDES  ?= /opt/ics/install/composer_xe_2015.0.090/tbb/include/
+else
 TBB_INCLUDES  ?= /home/chan/Downloads/Src/tbb42_20140122oss/include
-
+endif
 URCU_PATH     ?= /usr/local/lib#path to the URCU installation 
 CUCKOO_INCLUDES ?= /home/chan/Downloads/Src/libcuckoo-master/libcuckoo
 CUCKOO_LIBS   ?= /home/chan/Downloads/Src/libcuckoo-master/libcuckoo/.libs
@@ -198,7 +205,16 @@ endif
 ifndef ARCH
     ARCH_NAME = $(shell uname -m)
 endif
-
+ifeq ($(VERSION),MIC) 
+ARCH_NAME = k1om
+URCU_PATH = /opt/ics/install/composer_xe_2015.0.090/compiler
+endif
+ifeq ($(ARCH_NAME), k1om)
+    ARCH = x86_64
+    CFLAGS += -m64
+    LDFLAGS += -m64
+    SSPFD = -lsspfd_x86_64
+endif
 ifeq ($(ARCH_NAME), i386)
     ARCH = x86
     CFLAGS += -m32

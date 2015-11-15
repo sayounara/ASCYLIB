@@ -5,9 +5,11 @@ include $(ROOT)/common/Makefile.common
 BINS  = $(BINDIR)/lf-ht_rcu
 PROF = $(ROOT)/src
 
-LDFLAGS += -L$(URCU_PATH)/lib -lurcu-cds -lurcu-qsbr -lurcu-signal -lurcu
+LDFLAGS += -L/root/userspace_rcu_revised/.libs -lurcu-cds -lurcu-qsbr -lurcu-signal -lurcu -Wl,-rpath /opt/ics/install/composer_xe_2015.0.090/compiler/lib/mic
 CFLAGS += -I$(URCU_PATH)/include
-
+ifeq ($(VERSION),MIC) 
+CC = icc -mmic -DMIC
+endif
 .PHONY:	all clean
 
 all:	main
